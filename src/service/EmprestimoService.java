@@ -130,8 +130,9 @@ public class EmprestimoService {
             System.out.println("Empréstimo encontrado: " + emprestimo);
             System.out.println("Digite os novos dados (Enter para manter atual):");
             
-            System.out.print("ID do aluno [" + emprestimo.getIdAluno() + "]: ");
             scanner.nextLine(); // descarta newline
+            
+            System.out.print("ID do aluno [" + emprestimo.getIdAluno() + "]: ");
             String idAlunoStr = scanner.nextLine();
             if (!idAlunoStr.trim().isEmpty()) {
                 emprestimo.setIdAluno(Integer.parseInt(idAlunoStr));
@@ -148,11 +149,27 @@ public class EmprestimoService {
             if (!dataEmpStr.trim().isEmpty()) {
                 emprestimo.setDataEmprestimo(LocalDate.parse(dataEmpStr));
             }
+
+            System.out.print("Data Prazo Devolução (AAAA-MM-DD) [" + emprestimo.getDataPrazoDevolucao() + "]: ");
+            String dataPrazoStr = scanner.nextLine();
+            if (!dataPrazoStr.trim().isEmpty()) {
+                emprestimo.setDataPrazoDevolucao(LocalDate.parse(dataPrazoStr));
+            }
             
-            System.out.print("Data devolução (AAAA-MM-DD) [" + emprestimo.getDataDevolucao() + "]: ");
+            System.out.print("Data devolução (AAAA-MM-DD) [" + (emprestimo.getDataDevolucao() != null ? emprestimo.getDataDevolucao() : "N/A") + "]: ");
             String dataDevStr = scanner.nextLine();
             if (!dataDevStr.trim().isEmpty()) {
                 emprestimo.setDataDevolucao(LocalDate.parse(dataDevStr));
+            } else if (emprestimo.getDataDevolucao() != null && dataDevStr.trim().isEmpty()){
+                // Se o usuário não digitar nada e já existia uma data, permite apagar (setar para null)
+                // Isso pode ser útil, mas adicione uma confirmação se necessário.
+                // Para este exemplo, vamos permitir apagar a data de devolução.
+                // System.out.print("Manter data de devolução '"+emprestimo.getDataDevolucao()+"'? (S/n) ou deixe em branco para apagar: ");
+                // String manterData = scanner.nextLine();
+                // if(manterData.equalsIgnoreCase("n")) emprestimo.setDataDevolucao(null);
+                // Se simplesmente deixar em branco e havia data, não faz nada (mantém a data)
+                // Para apagar explicitamente, o usuário precisaria digitar algo como "null"
+                // Decisão de design: por ora, deixar em branco não altera se já houver data. Para apagar, o usuário teria que modificar para permitir isso.
             }
             
             boolean atualizado = emprestimoDAO.update(emprestimo);

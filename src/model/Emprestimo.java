@@ -13,6 +13,7 @@ public class Emprestimo implements Serializable {
     private Integer   idAluno;
     private Integer   idLivro;
     private LocalDate dataEmprestimo;
+    private LocalDate dataPrazoDevolucao;
     private LocalDate dataDevolucao;
 
     public Emprestimo() { }
@@ -21,12 +22,14 @@ public class Emprestimo implements Serializable {
                       Integer idAluno,
                       Integer idLivro,
                       LocalDate dataEmprestimo,
+                      LocalDate dataPrazoDevolucao,
                       LocalDate dataDevolucao) {
 
         this.idEmprestimo = idEmprestimo;
         this.idAluno = Objects.requireNonNull(idAluno);
         this.idLivro = Objects.requireNonNull(idLivro);
         this.dataEmprestimo = Objects.requireNonNull(dataEmprestimo);
+        this.dataPrazoDevolucao = Objects.requireNonNull(dataPrazoDevolucao);
         this.dataDevolucao = dataDevolucao;
     }
 
@@ -62,6 +65,14 @@ public class Emprestimo implements Serializable {
         this.dataEmprestimo = Objects.requireNonNull(dataEmprestimo);
     }
 
+    public LocalDate getDataPrazoDevolucao() {
+        return dataPrazoDevolucao;
+    }
+
+    public void setDataPrazoDevolucao(LocalDate dataPrazoDevolucao) {
+        this.dataPrazoDevolucao = Objects.requireNonNull(dataPrazoDevolucao);
+    }
+
     public LocalDate getDataDevolucao() {
         return dataDevolucao;
     }
@@ -75,8 +86,12 @@ public class Emprestimo implements Serializable {
     }
 
     public long diasDeAtraso(LocalDate dataReferencia) {
-        if (dataDevolucao == null) return 0;
-        return ChronoUnit.DAYS.between(dataReferencia, dataDevolucao);
+        if (dataDevolucao != null && dataReferencia.isAfter(dataDevolucao)) {
+            return ChronoUnit.DAYS.between(dataPrazoDevolucao, dataDevolucao);
+        } else if (dataDevolucao == null && dataReferencia.isAfter(dataPrazoDevolucao)) {
+            return ChronoUnit.DAYS.between(dataPrazoDevolucao, dataReferencia);
+        }
+        return 0;
     }
 
     @Override
@@ -93,8 +108,8 @@ public class Emprestimo implements Serializable {
 
     @Override
     public String toString() {
-        return "Emprestimo[id=%d, aluno=%d, livro=%d, emprestado=%s, devolucao=%s]"
+        return "Emprestimo[id=%d, aluno=%d, livro=%d, emprestado=%s, prazo=%s, devolucao=%s]"
                 .formatted(idEmprestimo, idAluno, idLivro,
-                        dataEmprestimo, dataDevolucao);
+                        dataEmprestimo, dataPrazoDevolucao, dataDevolucao);
     }
 }

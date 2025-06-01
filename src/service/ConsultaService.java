@@ -9,6 +9,7 @@ import model.Livro;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Scanner;
 
@@ -41,9 +42,9 @@ public class ConsultaService {
             System.out.println("Exemplares disponíveis: " + (livro.getQuantidadeEstoque()));
             
             if (livro.getQuantidadeEstoque() > 0) {
-                System.out.println("✅ Livro disponível para empréstimo");
+                System.out.println("[OK] Livro disponível para empréstimo");
             } else {
-                System.out.println("❌ Livro indisponível no momento");
+                System.out.println("[X] Livro indisponível no momento");
             }
         } catch (Exception e) {
             System.out.println("Erro: " + e.getMessage());
@@ -59,21 +60,24 @@ public class ConsultaService {
             boolean temAtraso = false;
             
             for (Emprestimo emp : pendentes) {
-                // Assumindo prazo padrão de 7 dias
-                LocalDate prazoVencimento = emp.getDataEmprestimo().plusDays(7);
-                if (hoje.isAfter(prazoVencimento)) {
-                    System.out.println("🔴 Empréstimo " + emp.getIdEmprestimo() + 
-                                     " - Vencido em " + prazoVencimento + 
-                                     " (Atraso: " + (hoje.toEpochDay() - prazoVencimento.toEpochDay()) + " dias)");
+                // Usa a dataPrazoDevolucao do empréstimo
+                LocalDate prazoVencimento = emp.getDataPrazoDevolucao(); 
+                if (emp.getDataDevolucao() == null && hoje.isAfter(prazoVencimento)) {
+                    long diasAtraso = ChronoUnit.DAYS.between(prazoVencimento, hoje);
+                    System.out.println("[ATRASO] Empréstimo " + emp.getIdEmprestimo() + 
+                                     " - Aluno: " + emp.getIdAluno() + 
+                                     " - Livro: " + emp.getIdLivro() + 
+                                     " - Vencido em: " + prazoVencimento + 
+                                     " (Atraso: " + diasAtraso + " dias)");
                     temAtraso = true;
                 }
             }
             
             if (!temAtraso) {
-                System.out.println("✅ Nenhum empréstimo em atraso!");
+                System.out.println("[OK] Nenhum empréstimo em atraso!");
             }
         } catch (Exception e) {
-            System.out.println("Erro: " + e.getMessage());
+            System.out.println("Erro ao verificar empréstimos atrasados: " + e.getMessage());
         }
     }
 
@@ -89,11 +93,11 @@ public class ConsultaService {
                     .sum();
             
             System.out.println("\n=== ESTATÍSTICAS GERAIS ===");
-            System.out.println("📚 Total de alunos: " + alunos.size());
-            System.out.println("📖 Total de livros: " + livros.size());
-            System.out.println("📦 Total exemplares em estoque: " + totalEstoque);
-            System.out.println("🔄 Empréstimos pendentes: " + pendentes.size());
-            System.out.println("📋 Total de empréstimos já realizados: " + historico.size());
+            System.out.println("Total de alunos: " + alunos.size());
+            System.out.println("Total de livros: " + livros.size());
+            System.out.println("Total exemplares em estoque: " + totalEstoque);
+            System.out.println("Empréstimos pendentes: " + pendentes.size());
+            System.out.println("Total de empréstimos já realizados: " + historico.size());
             
             // Livro mais emprestado
             if (!historico.isEmpty()) {
@@ -107,7 +111,7 @@ public class ConsultaService {
                 if (livroMaisEmprestado.isPresent()) {
                     int idLivro = livroMaisEmprestado.get().getKey();
                     Livro livro = livroDAO.findById(idLivro);
-                    System.out.println("🏆 Livro mais emprestado: " + 
+                    System.out.println("Livro mais emprestado: " + 
                                      (livro != null ? livro.getTitulo() : "ID " + idLivro) + 
                                      " (" + livroMaisEmprestado.get().getValue() + " empréstimos)");
                 }

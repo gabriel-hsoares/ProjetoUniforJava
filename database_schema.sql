@@ -35,6 +35,7 @@ CREATE TABLE Emprestimos (
     id_aluno INT NOT NULL,
     id_livro INT NOT NULL,
     data_emprestimo DATE NOT NULL DEFAULT (CURDATE()),
+    data_prazo_devolucao DATE NOT NULL,
     data_devolucao DATE NULL,
     
 
@@ -47,9 +48,10 @@ CREATE TABLE Emprestimos (
     INDEX idx_aluno (id_aluno),
     INDEX idx_livro (id_livro),
     INDEX idx_data_emprestimo (data_emprestimo),
+    INDEX idx_data_prazo_devolucao (data_prazo_devolucao),
     INDEX idx_pendentes (data_devolucao),
     
-    -- o constraint vai garantir que a data de devolucao do livro seja maior ou igual a data de emprestimo
+    CONSTRAINT chk_data_prazo_devolucao CHECK (data_prazo_devolucao >= data_emprestimo),
     CONSTRAINT chk_datas CHECK (data_devolucao IS NULL OR data_devolucao >= data_emprestimo)
 ) ENGINE=InnoDB;
 

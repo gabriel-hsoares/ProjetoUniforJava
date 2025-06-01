@@ -8,7 +8,7 @@ public final class Database {
 
     private static final String URL      = "jdbc:mysql://localhost:3306/biblioteca_aprender_mais";
     private static final String USER     = "root";
-    private static final String PASSWORD = "20250529";
+    private static final String PASSWORD = "200704071223";
 
     private Database() { }
 

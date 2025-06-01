@@ -14,8 +14,8 @@ public class EmprestimoDAO {
 
     public boolean registrarEmprestimo(int idAluno, int idLivro, int prazoDias) throws SQLException {
         final String sqlInsert = """
-                INSERT INTO Emprestimos (id_aluno, id_livro, data_emprestimo, data_devolucao)
-                VALUES (?, ?, CURDATE(), NULL)
+                INSERT INTO Emprestimos (id_aluno, id_livro, data_emprestimo, data_prazo_devolucao, data_devolucao)
+                VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL ? DAY), NULL)
                 """;
 
         try (Connection conn = Database.getConnection()) {
@@ -29,6 +29,7 @@ public class EmprestimoDAO {
             try (PreparedStatement ps = conn.prepareStatement(sqlInsert)) {
                 ps.setInt(1, idAluno);
                 ps.setInt(2, idLivro);
+                ps.setInt(3, prazoDias);
                 ps.executeUpdate();
             }
 
@@ -38,39 +39,65 @@ public class EmprestimoDAO {
     }
 
     public boolean registrarDevolucao(int idEmprestimo) throws SQLException {
-        final String sqlSelect  = "SELECT id_livro FROM Emprestimos WHERE id_emprestimo = ? AND data_devolucao IS NOT NULL";
-        final String sqlUpdate  = "UPDATE Emprestimos SET data_devolucao = CURDATE() WHERE id_emprestimo = ? AND data_devolucao IS NULL";
+        final String sqlSelectLivro = "SELECT id_livro FROM Emprestimos WHERE id_emprestimo = ? AND data_devolucao IS NULL";
+        final String sqlUpdateDevolucao = "UPDATE Emprestimos SET data_devolucao = CURDATE() WHERE id_emprestimo = ? AND data_devolucao IS NULL";
 
         try (Connection conn = Database.getConnection()) {
             conn.setAutoCommit(false);
 
-            try (PreparedStatement ps = conn.prepareStatement(sqlUpdate)) {
-                ps.setInt(1, idEmprestimo);
-                if (ps.executeUpdate() == 0) {
+            int idLivro = -1;
+
+            // 1. Verificar se o empréstimo existe e está pendente, e obter o id_livro
+            try (PreparedStatement psSelect = conn.prepareStatement(sqlSelectLivro)) {
+                psSelect.setInt(1, idEmprestimo);
+                try (ResultSet rs = psSelect.executeQuery()) {
+                    if (rs.next()) {
+                        idLivro = rs.getInt("id_livro");
+                    } else {
+                        // Empréstimo não encontrado ou já devolvido
+                        conn.rollback();
+                        return false;
+                    }
+                }
+            }
+
+            // 2. Registrar a devolução (atualizar data_devolucao)
+            try (PreparedStatement psUpdate = conn.prepareStatement(sqlUpdateDevolucao)) {
+                psUpdate.setInt(1, idEmprestimo);
+                int rowsAffected = psUpdate.executeUpdate();
+                if (rowsAffected == 0) {
+                    // Não deveria acontecer se o select acima funcionou, mas é uma segurança
                     conn.rollback();
                     return false;
                 }
             }
 
-            int idLivro;
-            try (PreparedStatement ps2 = conn.prepareStatement("SELECT id_livro FROM Emprestimos WHERE id_emprestimo = ?")) {
-                ps2.setInt(1, idEmprestimo);
-                try (ResultSet rs = ps2.executeQuery()) {
-                    if (!rs.next()) {
-                        conn.rollback();
-                        return false;
-                    }
-                    idLivro = rs.getInt("id_livro");
+            // 3. Atualizar o estoque do livro
+            if (idLivro != -1) {
+                if (!livroDAO.alterarEstoque(idLivro, +1)) {
+                    conn.rollback();
+                    return false; // Falha ao alterar o estoque
                 }
-            }
-
-            if (!livroDAO.alterarEstoque(idLivro, +1)) {
+            } else {
+                // Não deveria chegar aqui se o primeiro select funcionou
                 conn.rollback();
                 return false;
             }
 
             conn.commit();
             return true;
+        } catch (SQLException e) {
+            // Em caso de qualquer SQLException, faz rollback e relança a exceção
+            // ou trata de forma adequada (ex: logar e retornar false)
+            try (Connection conn = Database.getConnection()) { // Try-with-resources para garantir o fechamento
+                 if (conn != null && !conn.getAutoCommit()){ // conn pode ser null se Database.getConnection() falhou
+                    conn.rollback();
+                 }
+            } catch (SQLException exRollback) {
+                 // Logar falha no rollback, se necessário
+                 System.err.println("Erro ao fazer rollback: " + exRollback.getMessage());
+            }
+            throw e; // ou return false; dependendo da política de tratamento de erro
         }
     }
 
@@ -141,7 +168,11 @@ public class EmprestimoDAO {
     public boolean update(Emprestimo emprestimo) throws SQLException {
         final String sql = """
                 UPDATE Emprestimos 
-                   SET id_aluno = ?, id_livro = ?, data_emprestimo = ?, data_devolucao = ?
+                   SET id_aluno = ?, 
+                       id_livro = ?, 
+                       data_emprestimo = ?, 
+                       data_prazo_devolucao = ?, 
+                       data_devolucao = ?
                  WHERE id_emprestimo = ?
                 """;
         try (Connection conn = Database.getConnection();
@@ -150,8 +181,9 @@ public class EmprestimoDAO {
             ps.setInt(1, emprestimo.getIdAluno());
             ps.setInt(2, emprestimo.getIdLivro());
             ps.setDate(3, Date.valueOf(emprestimo.getDataEmprestimo()));
-            ps.setDate(4, emprestimo.getDataDevolucao() != null ? Date.valueOf(emprestimo.getDataDevolucao()) : null);
-            ps.setInt(5, emprestimo.getIdEmprestimo());
+            ps.setDate(4, Date.valueOf(emprestimo.getDataPrazoDevolucao()));
+            ps.setDate(5, emprestimo.getDataDevolucao() != null ? Date.valueOf(emprestimo.getDataDevolucao()) : null);
+            ps.setInt(6, emprestimo.getIdEmprestimo());
             return ps.executeUpdate() > 0;
         }
     }
@@ -173,6 +205,7 @@ public class EmprestimoDAO {
                 rs.getInt("id_aluno"),
                 rs.getInt("id_livro"),
                 rs.getDate("data_emprestimo").toLocalDate(),
+                rs.getDate("data_prazo_devolucao").toLocalDate(),
                 devolucao == null ? null : devolucao.toLocalDate()
         );
     }
